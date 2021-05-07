@@ -1,5 +1,6 @@
-import tensorflow as tf
-from tensorflow.keras import layers
+# import tensorflow as tf
+# from tensorflow.keras import layers
+import torch
 import logging
 
 def constant(value, trainable=False):
@@ -14,17 +15,18 @@ def constant(value, trainable=False):
     """
     #if value.dtype != tf.float32:
     #    logging.getLogger(__name__).info("Casting constant to tf.float32")
-    result = tf.cast(value, tf.float32)
+    result = torch.Tensor([value])
     if trainable:
-        result = tf.Variable(result, trainable=True)
+        result = result.clone().detach().requires_grad_(True)
     else:
-        result = tf.constant(result)
+        result = result.clone().detach().requires_grad_(False)
     result.active_doms = []
     return result
 
+
 def variable(label, feed):
     """Returns a Tensor with the same values and contents as feed, that can be used as a ltn variable. 
-    
+
     A ltn variable denotes a sequence of individuals.
     Axis 0 is the batch dimension: if `x` is an `ltn.variable`, `x[0]` gives the first individual,
     `x[1]` gives the second individual, and so forth, the usual way.
@@ -36,15 +38,15 @@ def variable(label, feed):
     """
     if label.startswith("diag"):
         raise ValueError("Labels starting with diag are reserved.")
-    if isinstance(feed, tf.Tensor):
+    if isinstance(feed, torch.Tensor):
         result = feed
     else:
-        result = tf.constant(feed)
-    #if result.dtype != tf.float32 :
+        result = torch.Tensor([feed])
+    # if result.dtype != tf.float32 :
     #    logging.getLogger(__name__).info("Casting variable to tf.float32")
-    if len(tf.shape(result)) == 1:
-        result = result[:, tf.newaxis]
-    result = tf.cast(result, tf.float32)
+    # if len(result.shape) == 1:
+    #     result = result[:, tf.newaxis]
+    result = result.type(torch.FloatTensor)
     result.latent_dom = label
     result.active_doms = [label]
     return result
