@@ -1,9 +1,4 @@
-# xcimport tensorflow as tf
-import pytorch
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import math
 
 """
 Element-wise fuzzy logic operators for tensorflow.
@@ -23,12 +18,10 @@ class Not_Std:
 class Not_Godel:
     def __call__(self,x):
         return torch.equal(x,0).type(x.dtype)
-        # return tf.cast(tf.equal(x,0),x.dtype)
 
 class And_Min:
     def __call__(self,x,y):
         return torch.min(x, y)
-        # return tf.minimum(x,y)
 class And_Prod:
     def __init__(self,stable=True):
         self.stable = stable
@@ -61,7 +54,6 @@ class Implies_KleeneDienes:
         return torch.max(1.-x,y)
 class Implies_Godel:
     def __call__(self,x,y):
-        # return tf.where(tf.less_equal(x, y), tf.ones_like(x), y)
         return torch.where(torch.less_equal(x,y),torch.ones_like(x),y)
 class Implies_Reichenbach:
     def __init__(self,stable=True):
@@ -92,24 +84,36 @@ class Equiv:
         return self.and_op(self.implies_op(x,y), self.implies_op(y,x))
 
 class Aggreg_Min:
-    def __call__(self,xs,axis=None,keepdims=False):
-        return tf.reduce_min(xs,axis=axis,keepdims=keepdims)
+    def __call__(self,xs,axis=None, keepdims=False):
+        # return tf.reduce_min(xs,axis=axis,keepdims=keepdims)
+        # Not sure how to handle dim and axis her. may have to revisit
+        return torch.min(xs,dim=axis,keepdim=keepdims)
 class Aggreg_Max:
-    def __call__(self,xs,axis=None,keepdims=False):
-        return tf.reduce_max(xs,axis=axis,keepdims=keepdims)
+    def __call__(self,xs,axis=None, keepdims=False):
+        return torch.max(xs,dim=axis,keepdim=keepdims)
 class Aggreg_Mean:
-    def __call__(self,xs,axis=None,keepdims=False):
-        return tf.reduce_mean(xs,axis=axis,keepdims=keepdims)
+    def __call__(self,xs,axis=None, keepdims=False):
+        return torch.mean(xs,dim=axis,keepdim=keepdims)
+# class Aggreg_pMean:
+#     def __init__(self,p=2,stable=True):
+#         self.p = p
+#         self.stable = stable
+#     def __call__(self,xs,axis=None,keepdims=False,p=None,stable=None):
+#         p = self.p if p is None else p
+#         stable = self.stable if stable is None else stable
+#         if stable:
+#             xs = not_zeros(xs)
+#         return tf.pow(tf.reduce_mean(tf.pow(xs,p),axis=axis,keepdims=keepdims),1/p)
 class Aggreg_pMean:
     def __init__(self,p=2,stable=True):
         self.p = p
         self.stable = stable
     def __call__(self,xs,axis=None,keepdims=False,p=None,stable=None):
-        p = self.p if p is None else p 
+        p = self.p if p is None else p
         stable = self.stable if stable is None else stable
         if stable:
             xs = not_zeros(xs)
-        return tf.pow(tf.reduce_mean(tf.pow(xs,p),axis=axis,keepdims=keepdims),1/p)
+        return torch.pow(torch.mean(torch.pow(xs,p),dim=axis,keepdim=keepdims),1/p)
 class Aggreg_pMeanError:
     def __init__(self,p=2,stable=True):
         self.p = p
@@ -119,4 +123,4 @@ class Aggreg_pMeanError:
         stable = self.stable if stable is None else stable
         if stable:
             xs = not_ones(xs)
-        return 1.-tf.pow(tf.reduce_mean(tf.pow(1.-xs,p),axis=axis,keepdims=keepdims),1/p)
+        return 1.-torch.pow(torch.mean(torch.pow(1.-xs,p),dim=axis,keepdim=keepdims),1/p)
