@@ -1,6 +1,8 @@
 # import tensorflow as tf
 # from tensorflow.keras import layers
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import logging
 
 def constant(value, trainable=False):
@@ -51,51 +53,53 @@ def variable(label, feed):
     result.active_doms = [label]
     return result
 
-class Predicate(tf.keras.Model):
+
+class Predicate(nn.Module):
     """Predicate class for ltn.
 
     A ltn predicate is a mathematical function (either pre-defined or learnable) that maps
     from some n-ary domain of individuals to a real from [0,1] that can be interpreted as a truth value.
     Examples of predicates can be similarity measures, classifiers, etc.
-    
+
     Predicates can be defined using any operations in Tensorflow. They can be linear functions, Deep Neural Networks, and so forth.
 
     An ltn predicate implements a `tf.keras.Model` instance that can "broadcast" ltn terms as follows:
-    1. Evaluating a predicate with one variable of n individuals yields n output values, 
+    1. Evaluating a predicate with one variable of n individuals yields n output values,
     where the i-th output value corresponds to the term calculated with the i-th individual.
-    2. Evaluating a predicate with k variables (x1,...,xk) with respectively n1,...,nK 
-    individuals each, yields a result with n1*...*nk values. The result is organized in a tensor 
-    where the first k dimensions can be indexed to retrieve the outcome(s) that correspond to each variable. 
-    The tensor output by a predicate has a dynamically added attribute `active_doms` 
+    2. Evaluating a predicate with k variables (x1,...,xk) with respectively n1,...,nK
+    individuals each, yields a result with n1*...*nk values. The result is organized in a tensor
+    where the first k dimensions can be indexed to retrieve the outcome(s) that correspond to each variable.
+    The tensor output by a predicate has a dynamically added attribute `active_doms`
     that tells which axis corresponds to which variable (using the label of the variable).
 
     Attributes:
-        model: The wrapped tensorflow model, without the ltn-specific broadcasting. 
+        model: The wrapped tensorflow model, without the ltn-specific broadcasting.
     """
+
     def __init__(self, model):
-        """Inits the ltn predicate with the given tf.keras.Model instance, 
+        """Inits the ltn predicate with the given tf.keras.Model instance,
         wrapping it with the broadcasting mechanism."""
         super(Predicate, self).__init__()
         self.model = model
 
     def call(self, inputs, *args, **kwargs):
         """Encapsulates the "self.model.__call__" to handle the broadcasting.
-        
+
         Args:
-            inputs: tensor or list of tensors that are ltn terms (ltn variable, ltn constant or 
-                    output of a ltn functions). 
+            inputs: tensor or list of tensors that are ltn terms (ltn variable, ltn constant or
+                    output of a ltn functions).
         Returns:
             outputs: tensor of truth values, with dimensions s.t. each variable corresponds to one axis.
         """
-        if not isinstance(inputs,(list,tuple)):
-            inputs, doms, dims_0 = cross_args([inputs],flatten_dim0=True)
+        if not isinstance(inputs, (list, tuple)):
+            inputs, doms, dims_0 = cross_args([inputs], flatten_dim0=True)
             inputs = inputs[0]
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
         outputs = self.model(inputs, *args, **kwargs)
-        dims_0 = tf.cast(dims_0,tf.int32) # is a fix when dims_0 is an empty list
-        outputs = tf.reshape(outputs, dims_0)
-        outputs = tf.cast(outputs,tf.float32)
+        dims_0 = dims_0.type(torch.IntTensor)  # is a fix when dims_0 is an empty list
+        outputs = torch.reshape(outputs, dims_0)
+        outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
         return outputs
 
@@ -166,6 +170,7 @@ class Function(tf.keras.Model):
         outputs.active_doms = doms
         return outputs
 
+
     @classmethod
     def MLP(cls, input_shapes, output_shape, hidden_layer_sizes=(16,16)):
         inputs = [tf.keras.Input(shape) for shape in input_shapes]
@@ -185,13 +190,20 @@ class Function(tf.keras.Model):
         model = LambdaModel(lambda_operator)
         return cls(model)
 
-class LambdaModel(tf.keras.Model):
+class LambdaLayer(nn.Module):
+    def __init__(self, lambd):
+        super(LambdaLayer, self).__init__()
+        self.lambd = lambd
+    def forward(self, x):
+        return self.lambd(x)
+
+class LambdaModel(nn.Module):
     """ Simple `tf.keras.Model` that implements a lambda layer.
     Used in `ltn.Predicate.Lambda` and `ltn.Function.Lambda`. 
     """
     def __init__(self, lambda_operator):
         super(LambdaModel, self).__init__()
-        self.lambda_layer = layers.Lambda(lambda_operator)
+        self.lambda_layer = LambdaLayer(lambda_operator)
     
     def call(self, inputs):
         return self.lambda_layer(inputs)
