@@ -32,7 +32,7 @@ class And_Prod:
         return torch.mul(x,y)
 class And_Luk:
     def __call__(self,x,y):
-        return torch.max(x+y-1.,0.)
+        return torch.max(x+y-1,0)
 
 class Or_Max:
     def __call__(self,x,y):
@@ -47,7 +47,7 @@ class Or_ProbSum:
         return x + y - torch.mul(x,y)
 class Or_Luk:
     def __call__(self,x,y):
-        return torch.min(x+y,1.)
+        return torch.min(x+y,1)
 
 class Implies_KleeneDienes:
     def __call__(self,x,y):
@@ -83,27 +83,38 @@ class Equiv:
     def __call__(self, x, y):
         return self.and_op(self.implies_op(x,y), self.implies_op(y,x))
 
+def multi_axes_op(op, input, axes, keepdim=False):
+    '''
+    Performs `operation` over multiple dimensions of `input`
+    '''
+    if isinstance(axes, int):
+        axes = [axes]
+    else:
+        axes = sorted(axes)
+    result = input
+    for axis in reversed(axes):
+        if op == 'mean':
+            result = torch.mean(result, axis, keepdim)
+        elif op == 'min':
+            result,_ = torch.min(result, axis, keepdim)
+        elif op == 'max':
+            result,_ = torch.max(result, axis, keepdim)
+    return result
+
+
 class Aggreg_Min:
     def __call__(self,xs,axis=None, keepdims=False):
         # return tf.reduce_min(xs,axis=axis,keepdims=keepdims)
         # Not sure how to handle dim and axis her. may have to revisit
-        return torch.min(xs,dim=axis,keepdim=keepdims)
+        # torch.min(xs, dim=axis, keepdim=keepdims)
+        return multi_axes_op('min', xs, axes=axis, keepdim=keepdims)
 class Aggreg_Max:
     def __call__(self,xs,axis=None, keepdims=False):
-        return torch.max(xs,dim=axis,keepdim=keepdims)
+        return multi_axes_op('max', xs, axes=axis, keepdim=keepdims)
 class Aggreg_Mean:
     def __call__(self,xs,axis=None, keepdims=False):
-        return torch.mean(xs,dim=axis,keepdim=keepdims)
-# class Aggreg_pMean:
-#     def __init__(self,p=2,stable=True):
-#         self.p = p
-#         self.stable = stable
-#     def __call__(self,xs,axis=None,keepdims=False,p=None,stable=None):
-#         p = self.p if p is None else p
-#         stable = self.stable if stable is None else stable
-#         if stable:
-#             xs = not_zeros(xs)
-#         return tf.pow(tf.reduce_mean(tf.pow(xs,p),axis=axis,keepdims=keepdims),1/p)
+        return multi_axes_op('mean', xs, axes=axis, keepdim=keepdims)
+
 class Aggreg_pMean:
     def __init__(self,p=2,stable=True):
         self.p = p
@@ -113,7 +124,8 @@ class Aggreg_pMean:
         stable = self.stable if stable is None else stable
         if stable:
             xs = not_zeros(xs)
-        return torch.pow(torch.mean(torch.pow(xs,p),dim=axis,keepdim=keepdims),1/p)
+        # return torch.pow(torch.mean(torch.pow(xs,p),dim=axis,keepdim=keepdims),1/p)
+        return multi_axes_op('mean', (xs).pow(p), axes=axis,keepdim=keepdims).pow(1/p)
 class Aggreg_pMeanError:
     def __init__(self,p=2,stable=True):
         self.p = p
@@ -123,4 +135,5 @@ class Aggreg_pMeanError:
         stable = self.stable if stable is None else stable
         if stable:
             xs = not_ones(xs)
-        return 1.-torch.pow(torch.mean(torch.pow(1.-xs,p),dim=axis,keepdim=keepdims),1/p)
+        # return 1.-torch.pow(torch.mean(torch.pow(1.-xs,p),dim=axis,keepdim=keepdims),1/p)
+        return 1. - multi_axes_op('mean', (1 - xs).pow(p), axes=axis, keepdim = keepdims).pow(1 / p)
