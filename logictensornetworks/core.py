@@ -112,13 +112,15 @@ class Predicate(nn.Module):
 
     @classmethod
     def MLP(cls, input_shapes, hidden_layer_sizes=(16,16)):
-        inputs = [tf.keras.Input(shape) for shape in input_shapes]
-        flat_inputs = [layers.Flatten()(x) for x in inputs]
-        hidden = layers.Concatenate()(flat_inputs) if len(flat_inputs) > 1 else flat_inputs[0]
-        for units in hidden_layer_sizes:
-            hidden = layers.Dense(units,activation=tf.nn.elu)(hidden)
-        outputs = layers.Dense(1, activation=tf.nn.sigmoid)(hidden)
-        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        layers = nn.ModuleList()
+        inputs_dim = torch.flatten(torch.tensor(input_shapes))
+        layers.append(nn.Linear(inputs_dim,hidden_layer_sizes[0]))
+        if len(hidden_layer_sizes) > 1: # might not be needed cause of for loop limit?
+            for i, h_size in enumerate(hidden_layer_sizes[:-1]):
+                layers.append(nn.ELU())
+                layers.append(nn.Linear(h_size,hidden_layer_sizes[i+1]))
+        layers.append(nn.Sigmoid())
+        model = nn.Sequential(*layers)
         return cls(model)
 
 class Function(tf.keras.Model):
