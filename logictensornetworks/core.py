@@ -63,7 +63,7 @@ class Predicate(nn.Module):
 
     Predicates can be defined using any operations in Tensorflow. They can be linear functions, Deep Neural Networks, and so forth.
 
-    An ltn predicate implements a `tf.keras.Model` instance that can "broadcast" ltn terms as follows:
+    An ltn predicate implements a `nn.Model` instance that can "broadcast" ltn terms as follows:
     1. Evaluating a predicate with one variable of n individuals yields n output values,
     where the i-th output value corresponds to the term calculated with the i-th individual.
     2. Evaluating a predicate with k variables (x1,...,xk) with respectively n1,...,nK
@@ -82,7 +82,7 @@ class Predicate(nn.Module):
         super(Predicate, self).__init__()
         self.model = model
 
-    def call(self, inputs, *args, **kwargs):
+    def forward(self, inputs, *args, **kwargs):
         """Encapsulates the "self.model.__call__" to handle the broadcasting.
 
         Args:
@@ -97,8 +97,8 @@ class Predicate(nn.Module):
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
         outputs = self.model(inputs, *args, **kwargs)
-        dims_0 = dims_0.type(torch.IntTensor)  # is a fix when dims_0 is an empty list
-        outputs = torch.reshape(outputs, dims_0)
+        dims_0 = torch.tensor(dims_0).type(torch.IntTensor)  # is a fix when dims_0 is an empty list
+        outputs = torch.reshape(outputs, tuple(dims_0))
         outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
         return outputs
@@ -114,16 +114,18 @@ class Predicate(nn.Module):
     def MLP(cls, input_shapes, hidden_layer_sizes=(16,16)):
         layers = nn.ModuleList()
         inputs_dim = torch.flatten(torch.tensor(input_shapes))
-        layers.append(nn.Linear(inputs_dim,hidden_layer_sizes[0]))
+        layers.append(nn.Linear(inputs_dim[0],hidden_layer_sizes[0]))
         if len(hidden_layer_sizes) > 1: # might not be needed cause of for loop limit?
             for i, h_size in enumerate(hidden_layer_sizes[:-1]):
                 layers.append(nn.ELU())
                 layers.append(nn.Linear(h_size,hidden_layer_sizes[i+1]))
+        layers.append(nn.ELU())
+        layers.append(nn.Linear(hidden_layer_sizes[-1],1))
         layers.append(nn.Sigmoid())
         model = nn.Sequential(*layers)
         return cls(model)
 
-class Function(tf.keras.Model):
+class Function(nn.Module):
     """Function class for LTN.
 
     A ltn function is a mathematical function (pre-defined or learnable) that maps
@@ -133,7 +135,7 @@ class Function(tf.keras.Model):
     Functions can be defined using any operations in Tensorflow. 
     They can be linear functions, Deep Neural Networks, and so forth.
 
-    An ltn function implements a `tf.keras.Model` instance that can "broadcast" ltn terms as follows:
+    An ltn function implements a `nn.Model` instance that can "broadcast" ltn terms as follows:
     1. Evaluating a term with one variable of n individuals yields n output values, 
     where the i-th output value corresponds to the term calculated with the i-th individual.
     2. Evaluating a term with k variables (x1,...,xk) with respectively n1,...,nK 
@@ -151,7 +153,7 @@ class Function(tf.keras.Model):
         super(Function, self).__init__()
         self.model = model
     
-    def call(self, inputs, *args, **kwargs):
+    def forward(self, inputs, *args, **kwargs):
         """Encapsulates the "self.model.__call__" to handle the broadcasting.
         
         Args:
@@ -166,23 +168,30 @@ class Function(tf.keras.Model):
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
         outputs = self.model(inputs, *args, **kwargs)
-        dims_0 = tf.cast(dims_0,tf.int32) # is a fix when dims_0 is an empty list
-        outputs = tf.reshape(outputs, tf.concat([dims_0,outputs.shape[1::]],axis=0))
-        outputs = tf.cast(outputs,tf.float32)
+        #dims_0 = tf.cast(dims_0,tf.int32) # is a fix when dims_0 is an empty list
+        dims_0 = dims_0.type(torch.IntTensor) # is a fix when dims_0 is an empty list
+        #outputs = tf.reshape(outputs, tf.concat([dims_0,outputs.shape[1::]],axis=0))
+        outputs = torch.reshape(outputs, torch.cat([dims_0,outputs.shape[1::]],dim=0))
+        #outputs = tf.cast(outputs,tf.float32)
+        outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
         return outputs
 
 
     @classmethod
     def MLP(cls, input_shapes, output_shape, hidden_layer_sizes=(16,16)):
-        inputs = [tf.keras.Input(shape) for shape in input_shapes]
-        flat_inputs = [layers.Flatten()(x) for x in inputs]
-        hidden = layers.Concatenate()(flat_inputs) if len(flat_inputs) > 1 else flat_inputs[0]
-        for units in hidden_layer_sizes:
-            hidden = layers.Dense(units,activation=tf.nn.elu)(hidden)
-        flat_outputs = layers.Dense(tf.math.reduce_prod(output_shape))(hidden)
-        outputs = layers.Reshape(output_shape)(flat_outputs)
-        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        layers = nn.ModuleList()
+        inputs_dim = torch.flatten(torch.tensor(input_shapes))
+        output_dim = torch.prod(torch.tensor(output_shape))
+        layers.append(nn.Linear(inputs_dim,hidden_layer_sizes[0]))
+        if len(hidden_layer_sizes) > 1: # might not be needed cause of for loop limit?
+            for i, h_size in enumerate(hidden_layer_sizes[:-1]):
+                layers.append(nn.ELU())
+                layers.append(nn.Linear(h_size,hidden_layer_sizes[i+1]))
+        layers.append(nn.ELU())
+        layers.append(nn.Linear(hidden_layer_sizes[-1],output_dim))
+        # TODO: reshaping of the output needs to be done out of model (see "call" function)
+        model = nn.Sequential(*layers)
         return cls(model)
 
     @classmethod
