@@ -283,7 +283,7 @@ def undiag(*variables):
 def get_dim0_of_dom(wff, dom):
     """Returns the number of values that the domain takes in the expression. 
     """
-    return torch.Size(wff)[wff.active_doms.index(dom)] #may have to convert this to list
+    return wff.size()[wff.active_doms.index(dom)] #may have to convert this to list
 
 def cross_args(args, flatten_dim0=False):
     """
@@ -317,7 +317,7 @@ def cross_args(args, flatten_dim0=False):
         arg.active_doms = doms
         if flatten_dim0:
             non_doms_shape = arg.shape[len(doms_in_arg)::]
-            arg = torch.reshape(arg, shape=torch.cat([[-1],non_doms_shape],axis=0))
+            arg = torch.reshape(arg, shape=[-1]+list(non_doms_shape))
             # arg = tf.reshape(arg, shape=tf.concat([[-1], non_doms_shape], axis=0))
         crossed_args.append(arg)
     return crossed_args, doms, dims0
