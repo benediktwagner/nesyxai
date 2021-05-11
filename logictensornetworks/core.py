@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import logging
+from logictensornetworks.fuzzy_ops import multi_axes_op
 
 def constant(value, trainable=False):
     """Returns a Tensor with the same values and contents as feed, that can be used as a ltn constant.
@@ -56,13 +57,10 @@ def variable(label, feed):
 
 class Predicate(nn.Module):
     """Predicate class for ltn.
-
     A ltn predicate is a mathematical function (either pre-defined or learnable) that maps
     from some n-ary domain of individuals to a real from [0,1] that can be interpreted as a truth value.
     Examples of predicates can be similarity measures, classifiers, etc.
-
     Predicates can be defined using any operations in Tensorflow. They can be linear functions, Deep Neural Networks, and so forth.
-
     An ltn predicate implements a `nn.Model` instance that can "broadcast" ltn terms as follows:
     1. Evaluating a predicate with one variable of n individuals yields n output values,
     where the i-th output value corresponds to the term calculated with the i-th individual.
@@ -71,7 +69,6 @@ class Predicate(nn.Module):
     where the first k dimensions can be indexed to retrieve the outcome(s) that correspond to each variable.
     The tensor output by a predicate has a dynamically added attribute `active_doms`
     that tells which axis corresponds to which variable (using the label of the variable).
-
     Attributes:
         model: The wrapped tensorflow model, without the ltn-specific broadcasting.
     """
@@ -84,7 +81,6 @@ class Predicate(nn.Module):
 
     def forward(self, inputs, *args, **kwargs):
         """Encapsulates the "self.model.__call__" to handle the broadcasting.
-
         Args:
             inputs: tensor or list of tensors that are ltn terms (ltn variable, ltn constant or
                     output of a ltn functions).
@@ -105,7 +101,7 @@ class Predicate(nn.Module):
 
     @classmethod
     def Lambda(cls, lambda_operator):
-        """Constructor that takes in argument a lambda function. It is appropriate for small 
+        """Constructor that takes in argument a lambda function. It is appropriate for small
         non-trainable mathematical operations that return a value in [0,1]."""
         model = LambdaModel(lambda_operator)
         return cls(model)
@@ -125,71 +121,68 @@ class Predicate(nn.Module):
         model = nn.Sequential(*layers)
         return cls(model)
 
+
 class Function(nn.Module):
     """Function class for LTN.
-
     A ltn function is a mathematical function (pre-defined or learnable) that maps
-    n individuals to one individual in the tensor domain. 
-    Examples of functions can be distance functions, regressors, etc. 
-
-    Functions can be defined using any operations in Tensorflow. 
+    n individuals to one individual in the tensor domain.
+    Examples of functions can be distance functions, regressors, etc.
+    Functions can be defined using any operations in Tensorflow.
     They can be linear functions, Deep Neural Networks, and so forth.
-
     An ltn function implements a `nn.Model` instance that can "broadcast" ltn terms as follows:
-    1. Evaluating a term with one variable of n individuals yields n output values, 
+    1. Evaluating a term with one variable of n individuals yields n output values,
     where the i-th output value corresponds to the term calculated with the i-th individual.
-    2. Evaluating a term with k variables (x1,...,xk) with respectively n1,...,nK 
-    individuals each, yields a result with n1*...*nk values. The result is organized in a tensor 
-    where the first k dimensions can be indexed to retrieve the outcome(s) that correspond to each variable. 
-    The tensor output by a predicate has a dynamically added attribute `active_doms` 
+    2. Evaluating a term with k variables (x1,...,xk) with respectively n1,...,nK
+    individuals each, yields a result with n1*...*nk values. The result is organized in a tensor
+    where the first k dimensions can be indexed to retrieve the outcome(s) that correspond to each variable.
+    The tensor output by a predicate has a dynamically added attribute `active_doms`
     that tells which axis corresponds to which variable (using the label of the variable).
-
     Attributes:
-        model: The wrapped tensorflow model, without the ltn-specific broadcasting. 
+        model: The wrapped tensorflow model, without the ltn-specific broadcasting.
     """
+
     def __init__(self, model):
-        """Inits the ltn function with the given tf.keras.Model instance, 
+        """Inits the ltn function with the given tf.keras.Model instance,
         wrapping it with the broadcasting mechanism."""
         super(Function, self).__init__()
         self.model = model
-    
+
     def forward(self, inputs, *args, **kwargs):
         """Encapsulates the "self.model.__call__" to handle the broadcasting.
-        
+
         Args:
-            inputs: tensor or list of tensors that are ltn terms (ltn variable, ltn constant or 
-                    output of a ltn functions). 
+            inputs: tensor or list of tensors that are ltn terms (ltn variable, ltn constant or
+                    output of a ltn functions).
         Returns:
             outputs: tensor of terms, with dimensions s.t. each variable corresponds to one axis.
         """
-        if not isinstance(inputs,(list,tuple)):
-            inputs, doms, dims_0 = cross_args([inputs],flatten_dim0=True)
+        if not isinstance(inputs, (list, tuple)):
+            inputs, doms, dims_0 = cross_args([inputs], flatten_dim0=True)
             inputs = inputs[0]
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
         outputs = self.model(inputs, *args, **kwargs)
-        #dims_0 = tf.cast(dims_0,tf.int32) # is a fix when dims_0 is an empty list
-        dims_0 = dims_0.type(torch.IntTensor) # is a fix when dims_0 is an empty list
-        #outputs = tf.reshape(outputs, tf.concat([dims_0,outputs.shape[1::]],axis=0))
-        outputs = torch.reshape(outputs, torch.cat([dims_0,outputs.shape[1::]],dim=0))
-        #outputs = tf.cast(outputs,tf.float32)
+        # dims_0 = tf.cast(dims_0,tf.int32) # is a fix when dims_0 is an empty list
+        dims_0 = dims_0.type(torch.IntTensor)  # is a fix when dims_0 is an empty list
+        # outputs = tf.reshape(outputs, tf.concat([dims_0,outputs.shape[1::]],axis=0))
+        outputs = torch.reshape(outputs, torch.cat([dims_0, outputs.shape[1::]], dim=0))
+        # outputs = tf.cast(outputs,tf.float32)
         outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
         return outputs
 
-
     @classmethod
-    def MLP(cls, input_shapes, output_shape, hidden_layer_sizes=(16,16)):
+    def MLP(cls, input_shapes, output_shape, hidden_layer_sizes=(16, 16)):
         layers = nn.ModuleList()
         inputs_dim = torch.flatten(torch.tensor(input_shapes))
         output_dim = torch.prod(torch.tensor(output_shape))
-        layers.append(nn.Linear(inputs_dim,hidden_layer_sizes[0]))
-        if len(hidden_layer_sizes) > 1: # might not be needed cause of for loop limit?
+        layers.append(nn.Linear(inputs_dim, hidden_layer_sizes[0]))
+        if len(hidden_layer_sizes) > 1:  # might not be needed cause of for loop limit?
             for i, h_size in enumerate(hidden_layer_sizes[:-1]):
                 layers.append(nn.ELU())
-                layers.append(nn.Linear(h_size,hidden_layer_sizes[i+1]))
+                layers.append(nn.Linear(h_size, hidden_layer_sizes[i + 1]))
         layers.append(nn.ELU())
-        layers.append(nn.Linear(hidden_layer_sizes[-1],output_dim))
+        layers.append(nn.Linear(hidden_layer_sizes[-1], output_dim))
         # TODO: reshaping of the output needs to be done out of model (see "call" function)
         model = nn.Sequential(*layers)
         return cls(model)
@@ -290,7 +283,7 @@ def undiag(*variables):
 def get_dim0_of_dom(wff, dom):
     """Returns the number of values that the domain takes in the expression. 
     """
-    return tf.shape(wff)[wff.active_doms.index(dom)]
+    return torch.Size(wff)[wff.active_doms.index(dom)] #may have to convert this to list
 
 def cross_args(args, flatten_dim0=False):
     """
@@ -313,15 +306,19 @@ def cross_args(args, flatten_dim0=False):
         doms_not_in_arg = list(set(doms).difference(doms_in_arg))
         for new_dom in doms_not_in_arg:
             new_idx = len(doms_in_arg)
-            arg = tf.expand_dims(arg, axis=new_idx)
-            arg = tf.repeat(arg, doms_to_dim0[new_dom], axis=new_idx)
+            # arg = tf.expand_dims(arg, axis=new_idx)
+            arg = torch.expand(arg, axis=new_idx)
+            # arg = tf.repeat(arg, doms_to_dim0[new_dom], axis=new_idx)
+            arg = arg.repeat(doms_to_dim0[new_dom], axis=new_idx)
             doms_in_arg.append(new_dom)
         perm = [doms_in_arg.index(dom) for dom in doms] + list(range(len(doms_in_arg),len(arg.shape)))
-        arg = tf.transpose(arg, perm=perm)
+        arg = arg.permute(perm)
+        # arg = tf.transpose(arg, perm=perm)
         arg.active_doms = doms
         if flatten_dim0:
             non_doms_shape = arg.shape[len(doms_in_arg)::]
-            arg = tf.reshape(arg, shape=tf.concat([[-1],non_doms_shape],axis=0))
+            arg = torch.reshape(arg, shape=torch.cat([[-1],non_doms_shape],axis=0))
+            # arg = tf.reshape(arg, shape=tf.concat([[-1], non_doms_shape], axis=0))
         crossed_args.append(arg)
     return crossed_args, doms, dims0
 
@@ -343,13 +340,13 @@ class Wrapper_Connective:
 
     def __call__(self, *wffs, **kwargs):
         wffs, doms, _ = cross_args(wffs)
-        try:
-            result = self._connective_op(*wffs, **kwargs)
-        except tf.errors.InvalidArgumentError:
-            raise ValueError("Could not connect arguments with shapes [%s] and respective doms [%s]."
-                % (', '.join(map(str,[wff.shape for wff in wffs])),
-                ', '.join(map(str,[wff.active_doms for wff in wffs])))
-            )
+        # try:
+        result = self._connective_op(*wffs, **kwargs)
+        # except tf.errors.InvalidArgumentError:
+        #     raise ValueError("Could not connect arguments with shapes [%s] and respective doms [%s]."
+        #         % (', '.join(map(str,[wff.shape for wff in wffs])),
+        #         ', '.join(map(str,[wff.active_doms for wff in wffs])))
+        #     )
         result.active_doms = doms
         return result
 
@@ -379,29 +376,31 @@ class Wrapper_Quantifier:
         variables = [variables] if not isinstance(variables,(list,tuple)) else variables
         aggreg_doms = set([var.active_doms[0] for var in variables])
         if mask_fn is not None and mask_vars is not None:
-            # create and apply the mask
-            wff, mask = compute_mask(wff, mask_vars, mask_fn, aggreg_doms)
-            ragged_wff = tf.ragged.boolean_mask(wff, mask)
-            # aggregate
-            aggreg_axes = [wff.active_doms.index(dom) for dom in aggreg_doms]
-            result = self._aggreg_op(ragged_wff, aggreg_axes, **kwargs)
-            if type(result) is tf.RaggedTensor:
-                result = result.to_tensor()
-            # For some values in the tensor, the mask can result in aggregating with empty variables.
-            #    e.g. forall X ( exists Y:condition(X,Y) ( p(X,Y) ) )
-            #       For some values of X, there may be no Y satisfying the condition
-            # The result of the aggregation operator in such case is often not defined (e.g. nan).
-            # We replace the result with 0.0 if the semantics of the aggregator is exists,
-            # or 1.0 if the semantics of the aggregator is forall.
-            aggreg_axes_in_mask = [mask.active_doms.index(dom) for dom in aggreg_doms 
-                    if dom in mask.active_doms]
-            non_empty_vars = tf.reduce_sum(tf.cast(mask,tf.int32), axis=aggreg_axes_in_mask) != 0
-            empty_semantics = 1. if self.semantics == "forall" else 0
-            result = tf.where(
-                non_empty_vars,
-                result,
-                empty_semantics
-            )
+            raise ValueError("Masked FN Ragged tensors not yet implemented in Torch")
+            # # create and apply the mask
+            # wff, mask = compute_mask(wff, mask_vars, mask_fn, aggreg_doms)
+            # ragged_wff = tf.ragged.boolean_mask(wff, mask)
+            # # aggregate
+            # aggreg_axes = [wff.active_doms.index(dom) for dom in aggreg_doms]
+            # result = self._aggreg_op(ragged_wff, aggreg_axes, **kwargs)
+            # if type(result) is tf.RaggedTensor:
+            #     result = result.to_tensor()
+            # # For some values in the tensor, the mask can result in aggregating with empty variables.
+            # #    e.g. forall X ( exists Y:condition(X,Y) ( p(X,Y) ) )
+            # #       For some values of X, there may be no Y satisfying the condition
+            # # The result of the aggregation operator in such case is often not defined (e.g. nan).
+            # # We replace the result with 0.0 if the semantics of the aggregator is exists,
+            # # or 1.0 if the semantics of the aggregator is forall.
+            # aggreg_axes_in_mask = [mask.active_doms.index(dom) for dom in aggreg_doms
+            #         if dom in mask.active_doms]
+            # # non_empty_vars = tf.reduce_sum(tf.cast(mask,tf.int32), axis=aggreg_axes_in_mask) != 0
+            # non_empty_vars = multi_axes_op('sum', mask.type(torch.FloatTensor), axes=aggreg_axes_in_mask, keepdim=False) != 0
+            # empty_semantics = 1. if self.semantics == "forall" else 0
+            # result = torch.where(
+            #     non_empty_vars,
+            #     result,
+            #     empty_semantics
+            # )
         else:
             aggreg_axes = [wff.active_doms.index(dom) for dom in aggreg_doms]
             result = self._aggreg_op(wff, axis=aggreg_axes, **kwargs)
@@ -423,7 +422,7 @@ def compute_mask(wff, mask_vars, mask_fn, aggreg_doms):
     # 3. compute the boolean mask from the masked vars
     crossed_mask_vars, doms_order_in_mask, dims0 = cross_args(mask_vars, flatten_dim0=True)
     mask = mask_fn(crossed_mask_vars)
-    mask = tf.reshape(mask, dims0)
+    mask = torch.reshape(mask, dims0)
     # 4. shape it according to the var order in wff
     mask.active_doms = doms_order_in_mask
     mask = transpose_doms(mask, doms_in_mask_not_aggreg + doms_in_mask_aggreg)
@@ -431,6 +430,7 @@ def compute_mask(wff, mask_vars, mask_fn, aggreg_doms):
     
 def transpose_doms(wff, new_doms_order):
     perm = [wff.active_doms.index(dom) for dom in new_doms_order]
-    wff = tf.transpose(wff, perm)
+    # wff = tf.transpose(wff, perm)
+    wff = wff.permute(perm) # we may have to convert perm to list
     wff.active_doms = new_doms_order
     return wff

@@ -99,6 +99,8 @@ def multi_axes_op(op, input, axes, keepdim=False):
             result,_ = torch.min(result, axis, keepdim)
         elif op == 'max':
             result,_ = torch.max(result, axis, keepdim)
+        elif op == 'sum':
+            result, _ = torch.sum(result, axis, keepdim)
     return result
 
 
