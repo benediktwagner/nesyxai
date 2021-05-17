@@ -92,9 +92,6 @@ class Predicate(nn.Module):
             inputs = inputs[0]
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
-            inputs = torch.stack(inputs)
-            inputs = inputs.transpose(1,0)
-        inputs = inputs.flatten(start_dim=1)
         outputs = self.model(inputs, *args, **kwargs)
         dims_0 = torch.tensor(dims_0).type(torch.IntTensor)  # is a fix when dims_0 is an empty list
         outputs = torch.reshape(outputs, tuple(dims_0))
@@ -111,19 +108,32 @@ class Predicate(nn.Module):
 
     @classmethod
     def MLP(cls, input_shapes, hidden_layer_sizes=(16,16)):
-        layers = nn.ModuleList()
-        inputs_dim = torch.sum(torch.tensor(input_shapes))
-        layers.append(nn.Linear(inputs_dim,hidden_layer_sizes[0]))
-        if len(hidden_layer_sizes) > 1: # might not be needed cause of for loop limit?
-            for i, h_size in enumerate(hidden_layer_sizes[:-1]):
-                layers.append(nn.ELU())
-                layers.append(nn.Linear(h_size,hidden_layer_sizes[i+1]))
-        layers.append(nn.ELU())
-        layers.append(nn.Linear(hidden_layer_sizes[-1],1))
-        layers.append(nn.Sigmoid())
-        model = nn.Sequential(*layers)
+        model = MLP_pred(input_shapes, hidden_layer_sizes)
         return cls(model)
 
+class MLP_pred(nn.Module):
+    def __init__(self, input_shapes, hidden_layer_sizes=(16,16)):
+        super(MLP_pred, self).__init__()
+        self.layers = nn.ModuleList()
+        inputs_dim = torch.sum(torch.tensor(input_shapes))
+        self.layers.append(nn.Linear(inputs_dim, hidden_layer_sizes[0]))
+        if len(hidden_layer_sizes) > 1:  # might not be needed cause of for loop limit?
+            for i, h_size in enumerate(hidden_layer_sizes[:-1]):
+                self.layers.append(nn.ELU())
+                self.layers.append(nn.Linear(h_size, hidden_layer_sizes[i + 1]))
+        self.layers.append(nn.ELU())
+        self.layers.append(nn.Linear(hidden_layer_sizes[-1], 1))
+        self.layers.append(nn.Sigmoid())
+
+    def forward(self, inputs):
+        if isinstance(inputs,(list,tuple)):
+            inputs = torch.stack(inputs)
+            inputs = inputs.transpose(1, 0)
+        inputs = inputs.flatten(start_dim=1)
+        x = self.layers[0](inputs)
+        for layer in self.layers[1:]:
+            x = layer(x)
+        return x
 
 class Function(nn.Module):
     """Function class for LTN.
