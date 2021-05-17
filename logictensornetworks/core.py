@@ -92,6 +92,9 @@ class Predicate(nn.Module):
             inputs = inputs[0]
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
+            inputs = torch.stack(inputs)
+            inputs = inputs.transpose(1,0)
+        inputs = inputs.flatten(start_dim=1)
         outputs = self.model(inputs, *args, **kwargs)
         dims_0 = torch.tensor(dims_0).type(torch.IntTensor)  # is a fix when dims_0 is an empty list
         outputs = torch.reshape(outputs, tuple(dims_0))
@@ -109,8 +112,8 @@ class Predicate(nn.Module):
     @classmethod
     def MLP(cls, input_shapes, hidden_layer_sizes=(16,16)):
         layers = nn.ModuleList()
-        inputs_dim = torch.flatten(torch.tensor(input_shapes))
-        layers.append(nn.Linear(inputs_dim[0],hidden_layer_sizes[0]))
+        inputs_dim = torch.sum(torch.tensor(input_shapes))
+        layers.append(nn.Linear(inputs_dim,hidden_layer_sizes[0]))
         if len(hidden_layer_sizes) > 1: # might not be needed cause of for loop limit?
             for i, h_size in enumerate(hidden_layer_sizes[:-1]):
                 layers.append(nn.ELU())
@@ -307,9 +310,9 @@ def cross_args(args, flatten_dim0=False):
         for new_dom in doms_not_in_arg:
             new_idx = len(doms_in_arg)
             # arg = tf.expand_dims(arg, axis=new_idx)
-            arg = torch.expand(arg, axis=new_idx)
+            arg = arg.unsqueeze(new_idx)
             # arg = tf.repeat(arg, doms_to_dim0[new_dom], axis=new_idx)
-            arg = arg.repeat(doms_to_dim0[new_dom], axis=new_idx)
+            arg = torch.repeat_interleave(arg, doms_to_dim0[new_dom], dim=new_idx)
             doms_in_arg.append(new_dom)
         perm = [doms_in_arg.index(dom) for dom in doms] + list(range(len(doms_in_arg),len(arg.shape)))
         arg = arg.permute(perm)
