@@ -26,6 +26,8 @@ def train(
             the train_step and test_step functions, for each epoch.
             Call using scheduled_parameters[epoch].
     """
+
+    # TODO: print metrics and save to csv
     # template = "Epoch {}"
     # for metrics_label in metrics_dict.keys():
     #     template += ", %s: {:.4f}" % metrics_label
@@ -36,6 +38,7 @@ def train(
     #     csv_file.write(headers+"\n")
     
     for epoch in range(epochs):
+        # TODO: save metrics to dict
         # for metrics in metrics_dict.values():
         #     metrics.reset_states()
 
@@ -44,13 +47,16 @@ def train(
         for batch_elements in ds_test:
             test_sat = test_step(*batch_elements,**scheduled_parameters[epoch])
 
+        # TODO: store metrics
         # metrics_results = [metrics.result() for metrics in metrics_dict.values()]
         if epoch%track_metrics == 0:
+            # TODO: print metrics
             # print(template.format(epoch,*metrics_results))
             print('Epoch ', epoch, '-> train_sat: ', train_sat, '\n')
             print('Epoch ', epoch, '-> test_sat: ', test_sat, '\n')
-        if csv_path is not None:
-            csv_file.write(csv_template.format(epoch,*metrics_results)+"\n")
-            csv_file.flush()
+        # TODO: save metrics to csv
+        # if csv_path is not None:
+        #     csv_file.write(csv_template.format(epoch,*metrics_results)+"\n")
+        #     csv_file.flush()
     if csv_path is not None:
         csv_file.close()

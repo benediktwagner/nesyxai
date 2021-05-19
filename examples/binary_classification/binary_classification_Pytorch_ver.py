@@ -1,10 +1,7 @@
-import tensorflow as tf
 import torch
-import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from torch.optim import Adam
 import numpy as np
-import matplotlib.pyplot as plt
 import logictensornetworks as ltn
 import argparse
 
@@ -32,10 +29,8 @@ t_data = torch.tensor(data)
 labels = np.sum(np.square(data-[.5,.5]),axis=1)<.09
 t_labels = torch.tensor(labels)
 # 50 examples for training; 50 examples for testing
-#ds_train = tf.data.Dataset.from_tensor_slices((data[:50],labels[:50])).batch(batch_size)
 ds_train = TensorDataset(t_data[:50],t_labels[:50])
 dl_train = DataLoader(ds_train, batch_size=batch_size)
-#ds_test = tf.data.Dataset.from_tensor_slices((data[50:],labels[50:])).batch(batch_size)
 ds_test = TensorDataset(t_data[50:],t_labels[50:])
 dl_test = DataLoader(ds_test, batch_size=batch_size)
 
@@ -60,7 +55,6 @@ Exists = ltn.Wrapper_Quantifier(ltn.fuzzy_ops.Aggreg_pMean(p=2),semantics="exist
 
 formula_aggregator = ltn.fuzzy_ops.Aggreg_pMeanError(p=2)
 
-#@tf.function
 def axioms(data, labels):
     x_A = ltn.variable("x_A",data[labels])
     x_not_A = ltn.variable("x_not_A",data[torch.logical_not(labels)])
@@ -68,7 +62,6 @@ def axioms(data, labels):
         Forall(x_A, A(x_A)),
         Forall(x_not_A, Not(A(x_not_A)))
     ]
-    #axioms = tf.stack(axioms)
     axioms = torch.stack(axioms)
     sat_level = formula_aggregator(axioms, axis=0)
     return sat_level, axioms
@@ -84,6 +77,7 @@ for data, labels in dl_test:
 # 
 # Define the metrics
 
+# TODO: create metrics with Pytorch
 # metrics_dict = {
 #     'train_sat': tf.keras.metrics.Mean(name='train_sat'),
 #     'test_sat': tf.keras.metrics.Mean(name='test_sat'),
@@ -92,10 +86,8 @@ for data, labels in dl_test:
 # }
 metrics_dict = {}
 
-
-#optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 optimizer = Adam(params=A.parameters() ,lr=0.001)
-#@tf.function
+
 def train_step(data, labels):
     # sat and update
     optimizer.zero_grad()
@@ -103,24 +95,19 @@ def train_step(data, labels):
     loss = 1.-sat
     loss.backward()
     optimizer.step()
-    # with tf.GradientTape() as tape:
-    #     sat = axioms(data, labels)[0]
-    #     loss = 1.-sat
-    # gradients = tape.gradient(loss, A.trainable_variables)
-    # optimizer.apply_gradients(zip(gradients, A.trainable_variables))
-
+    # TODO: collect metrics
     # metrics_dict['train_sat'](sat)
-    # accuracy
+    # # accuracy
     # predictions = A.model(data)
     # metrics_dict['train_accuracy'](labels,predictions)
     return sat
 
-#@tf.function
 def test_step(data, labels):
     # sat and update
     sat = axioms(data, labels)[0]
+    # TODO: collect metrics
     # metrics_dict['test_sat'](sat)
-    # accuracy
+    # # accuracy
     # predictions = A.model(data)
     # metrics_dict['test_accuracy'](labels,predictions)
     return sat
@@ -137,3 +124,7 @@ commons_pytorch.train(
     csv_path=csv_path,
     track_metrics=20
 )
+
+x = ltn.variable("x",data[:50])
+result=A(x)
+print(result)
