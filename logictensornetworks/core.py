@@ -93,8 +93,9 @@ class Predicate(nn.Module):
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
         outputs = self.model(inputs, *args, **kwargs)
-        dims_0 = torch.tensor(dims_0).type(torch.IntTensor)  # is a fix when dims_0 is an empty list
-        outputs = torch.reshape(outputs, tuple(dims_0))
+        if len(dims_0) > 0:
+            dims_0 = torch.tensor(dims_0).type(torch.IntTensor)  # is a fix when dims_0 is an empty list
+            outputs = torch.reshape(outputs, tuple(dims_0))
         outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
         return outputs
@@ -152,10 +153,11 @@ class Function(nn.Module):
         else:
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
         outputs = self.model(inputs, *args, **kwargs)
-        # dims_0 = tf.cast(dims_0,tf.int32) # is a fix when dims_0 is an empty list
-        dims_0 = dims_0.type(torch.IntTensor)  # is a fix when dims_0 is an empty list
-        # outputs = tf.reshape(outputs, tf.concat([dims_0,outputs.shape[1::]],axis=0))
-        outputs = torch.reshape(outputs, torch.cat([dims_0, outputs.shape[1::]], dim=0))
+        if len(dims_0) > 0:
+            # dims_0 = tf.cast(dims_0,tf.int32) # is a fix when dims_0 is an empty list
+            dims_0 = torch.tensor(dims_0).type(torch.IntTensor)  # is a fix when dims_0 is an empty list
+            # outputs = tf.reshape(outputs, tf.concat([dims_0,outputs.shape[1::]],axis=0))
+            outputs = torch.reshape(outputs, torch.cat([dims_0, outputs.shape[1::]], dim=0))
         # outputs = tf.cast(outputs,tf.float32)
         outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
