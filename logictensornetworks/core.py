@@ -18,7 +18,7 @@ def constant(value, trainable=False):
     """
     #if value.dtype != tf.float32:
     #    logging.getLogger(__name__).info("Casting constant to tf.float32")
-    result = torch.Tensor([value])
+    result = torch.tensor(value, dtype=torch.float32)
     if trainable:
         result = result.clone().detach().requires_grad_(True)
     else:
@@ -44,7 +44,7 @@ def variable(label, feed):
     if isinstance(feed, torch.Tensor):
         result = feed
     else:
-        result = torch.Tensor([feed])
+        result = torch.Tensor(feed)
     # if result.dtype != tf.float32 :
     #    logging.getLogger(__name__).info("Casting variable to tf.float32")
     # if len(result.shape) == 1:
@@ -111,29 +111,6 @@ class Predicate(nn.Module):
         model = MLP_pred(input_shapes, hidden_layer_sizes)
         return cls(model)
 
-class MLP_pred(nn.Module):
-    def __init__(self, input_shapes, hidden_layer_sizes=(16,16)):
-        super(MLP_pred, self).__init__()
-        self.layers = nn.ModuleList()
-        inputs_dim = torch.sum(torch.tensor(input_shapes))
-        self.layers.append(nn.Linear(inputs_dim, hidden_layer_sizes[0]))
-        if len(hidden_layer_sizes) > 1:  # might not be needed cause of for loop limit?
-            for i, h_size in enumerate(hidden_layer_sizes[:-1]):
-                self.layers.append(nn.ELU())
-                self.layers.append(nn.Linear(h_size, hidden_layer_sizes[i + 1]))
-        self.layers.append(nn.ELU())
-        self.layers.append(nn.Linear(hidden_layer_sizes[-1], 1))
-        self.layers.append(nn.Sigmoid())
-
-    def forward(self, inputs):
-        if isinstance(inputs,(list,tuple)):
-            inputs = torch.stack(inputs)
-            inputs = inputs.transpose(1, 0)
-        inputs = inputs.flatten(start_dim=1)
-        x = self.layers[0](inputs)
-        for layer in self.layers[1:]:
-            x = layer(x)
-        return x
 
 class Function(nn.Module):
     """Function class for LTN.
@@ -186,18 +163,7 @@ class Function(nn.Module):
 
     @classmethod
     def MLP(cls, input_shapes, output_shape, hidden_layer_sizes=(16, 16)):
-        layers = nn.ModuleList()
-        inputs_dim = torch.flatten(torch.tensor(input_shapes))
-        output_dim = torch.prod(torch.tensor(output_shape))
-        layers.append(nn.Linear(inputs_dim, hidden_layer_sizes[0]))
-        if len(hidden_layer_sizes) > 1:  # might not be needed cause of for loop limit?
-            for i, h_size in enumerate(hidden_layer_sizes[:-1]):
-                layers.append(nn.ELU())
-                layers.append(nn.Linear(h_size, hidden_layer_sizes[i + 1]))
-        layers.append(nn.ELU())
-        layers.append(nn.Linear(hidden_layer_sizes[-1], output_dim))
-        # TODO: reshaping of the output needs to be done out of model (see "call" function)
-        model = nn.Sequential(*layers)
+        model = MLP_pred(input_shapes, hidden_layer_sizes)
         return cls(model)
 
     @classmethod
@@ -207,12 +173,37 @@ class Function(nn.Module):
         model = LambdaModel(lambda_operator)
         return cls(model)
 
-class LambdaLayer(nn.Module):
-    def __init__(self, lambd):
-        super(LambdaLayer, self).__init__()
-        self.lambd = lambd
-    def forward(self, x):
-        return self.lambd(x)
+class MLP_pred(nn.Module):
+    def __init__(self, input_shapes, hidden_layer_sizes=(16,16)):
+        super(MLP_pred, self).__init__()
+        self.layers = nn.ModuleList()
+        inputs_dim = torch.sum(torch.tensor(input_shapes))
+        self.layers.append(nn.Linear(inputs_dim, hidden_layer_sizes[0]))
+        if len(hidden_layer_sizes) > 1:  # might not be needed cause of for loop limit?
+            for i, h_size in enumerate(hidden_layer_sizes[:-1]):
+                self.layers.append(nn.ELU())
+                self.layers.append(nn.Linear(h_size, hidden_layer_sizes[i + 1]))
+        self.layers.append(nn.ELU())
+        self.layers.append(nn.Linear(hidden_layer_sizes[-1], 1))
+        self.layers.append(nn.Sigmoid())
+
+    def forward(self, inputs):
+        if isinstance(inputs,(list,tuple)):
+            inputs = torch.stack(inputs)
+            inputs = inputs.transpose(1, 0)
+        inputs = inputs.flatten(start_dim=1)
+        x = self.layers[0](inputs)
+        for layer in self.layers[1:]:
+            x = layer(x)
+        return x
+
+# Not really needed?
+# class LambdaLayer(nn.Module):
+#     def __init__(self, lambd):
+#         super(LambdaLayer, self).__init__()
+#         self.lambd = lambd
+#     def forward(self, x):
+#         return self.lambd(x)
 
 class LambdaModel(nn.Module):
     """ Simple `tf.keras.Model` that implements a lambda layer.
@@ -220,10 +211,10 @@ class LambdaModel(nn.Module):
     """
     def __init__(self, lambda_operator):
         super(LambdaModel, self).__init__()
-        self.lambda_layer = LambdaLayer(lambda_operator)
+        self.lambd = lambda_operator
     
-    def call(self, inputs):
-        return self.lambda_layer(inputs)
+    def forward(self, inputs):
+        return self.lambd(inputs)
 
 def proposition(truth_value, trainable=False):
     """Returns a rank-0 Tensor with the given truth value, whose output is constrained in [0,1],
@@ -238,13 +229,16 @@ def proposition(truth_value, trainable=False):
     except:
         raise ValueError("The truth value of a proposition should be a float in [0,1].")
     if trainable:
-        result = tf.Variable(truth_value, trainable=True, 
-                constraint=lambda x: tf.clip_by_value(x, 0., 1.))
+        result = torch.clamp(torch.tensor(truth_value, requires_grad=True),0.,1.)
+        # result = tf.Variable(truth_value, trainable=True,
+        #         constraint=lambda x: tf.clip_by_value(x, 0., 1.))
     else:
-        result = tf.constant(truth_value)
-    if result.dtype != tf.float32:
+        result = torch.tensor(truth_value, requires_grad=False)
+        # result = tf.constant(truth_value)
+    if result.dtype != torch.float32:
         logging.getLogger(__name__).info("Casting proposition to tf.float32")
-        result = tf.cast(result, tf.float32)
+        result = result.type(torch.float32)
+        # result = tf.cast(result, tf.float32)
     result.active_doms = []
     return result
     
