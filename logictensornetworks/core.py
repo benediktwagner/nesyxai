@@ -230,20 +230,14 @@ def proposition(truth_value, trainable=False):
         assert 0 <= float(truth_value) <= 1
     except:
         raise ValueError("The truth value of a proposition should be a float in [0,1].")
+    result = torch.tensor(truth_value, dtype=torch.float32)
     if trainable:
-        result = torch.clamp(torch.tensor(truth_value, requires_grad=True),0.,1.)
-        # result = tf.Variable(truth_value, trainable=True,
-        #         constraint=lambda x: tf.clip_by_value(x, 0., 1.))
+        result = result.clone().detach().requires_grad_(True)
     else:
-        result = torch.tensor(truth_value, requires_grad=False)
-        # result = tf.constant(truth_value)
-    if result.dtype != torch.float32:
-        logging.getLogger(__name__).info("Casting proposition to tf.float32")
-        result = result.type(torch.float32)
-        # result = tf.cast(result, tf.float32)
+        result = result.clone().detach().requires_grad_(False)
     result.active_doms = []
     return result
-    
+
 def diag(*variables):
     """Sets the given ltn variables for diagonal quantification (no broadcasting between these variables).
 
