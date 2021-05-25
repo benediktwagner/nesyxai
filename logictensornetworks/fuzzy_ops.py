@@ -17,7 +17,7 @@ class Not_Std:
         return 1.-x
 class Not_Godel:
     def __call__(self,x):
-        return torch.equal(x,0).type(x.dtype)
+        return torch.equal(x,torch.tensor(0.)).type(x.dtype)
 
 class And_Min:
     def __call__(self,x,y):
@@ -32,7 +32,7 @@ class And_Prod:
         return torch.mul(x,y)
 class And_Luk:
     def __call__(self,x,y):
-        return torch.max(x+y-1,0)
+        return torch.max(x+y-1,torch.tensor(0.))
 
 class Or_Max:
     def __call__(self,x,y):
@@ -47,7 +47,7 @@ class Or_ProbSum:
         return x + y - torch.mul(x,y)
 class Or_Luk:
     def __call__(self,x,y):
-        return torch.min(x+y,1)
+        return torch.min(x+y,torch.tensor(1.))
 
 class Implies_KleeneDienes:
     def __call__(self,x,y):
@@ -73,7 +73,7 @@ class Implies_Goguen:
         return torch.where(torch.less_equal(x,y),torch.ones_like(x),torch.divide(y,x))
 class Implies_Luk:
     def __call__(self,x,y):
-        return torch.min(1.-x+y,1.)
+        return torch.min(1.-x+y,torch.tensor(1.))
 
 class Equiv:
     """Returns an operator that computes: And(Implies(x,y),Implies(y,x))"""
