@@ -127,7 +127,7 @@ def axioms():
     ]    
     # computing sat_level
     axioms = torch.stack([torch.squeeze(ax) for ax in axioms])
-    sat_level = formula_aggregator(axioms, axis=0)
+    sat_level = formula_aggregator(axioms)
     return sat_level, axioms
 
 print("Initial sat level %.5f"%axioms()[0])

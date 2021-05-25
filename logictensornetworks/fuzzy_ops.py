@@ -105,23 +105,23 @@ def multi_axes_op(op, input, axes, keepdim=False):
 
 
 class Aggreg_Min:
-    def __call__(self,xs,axis=None, keepdims=False):
+    def __call__(self,xs,axis=0, keepdims=False):
         # return tf.reduce_min(xs,axis=axis,keepdims=keepdims)
         # Not sure how to handle dim and axis her. may have to revisit
         # torch.min(xs, dim=axis, keepdim=keepdims)
         return multi_axes_op('min', xs, axes=axis, keepdim=keepdims)
 class Aggreg_Max:
-    def __call__(self,xs,axis=None, keepdims=False):
+    def __call__(self,xs,axis=0, keepdims=False):
         return multi_axes_op('max', xs, axes=axis, keepdim=keepdims)
 class Aggreg_Mean:
-    def __call__(self,xs,axis=None, keepdims=False):
+    def __call__(self,xs,axis=0, keepdims=False):
         return multi_axes_op('mean', xs, axes=axis, keepdim=keepdims)
 
 class Aggreg_pMean:
     def __init__(self,p=2,stable=True):
         self.p = p
         self.stable = stable
-    def __call__(self,xs,axis=None,keepdims=False,p=None,stable=None):
+    def __call__(self,xs,axis=0,keepdims=False,p=None,stable=None):
         p = self.p if p is None else p
         stable = self.stable if stable is None else stable
         if stable:
@@ -132,7 +132,7 @@ class Aggreg_pMeanError:
     def __init__(self,p=2,stable=True):
         self.p = p
         self.stable = stable
-    def __call__(self,xs,axis=None,keepdims=False,p=None,stable=None):
+    def __call__(self,xs,axis=0,keepdims=False,p=None,stable=None):
         p = self.p if p is None else p
         stable = self.stable if stable is None else stable
         if stable:
