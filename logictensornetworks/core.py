@@ -6,7 +6,8 @@ import torch.nn.functional as F
 import logging
 from logictensornetworks.fuzzy_ops import multi_axes_op
 
-def constant(value, trainable=False):
+
+def constant(value, trainable=False, device=torch.device('cpu')):
     """Returns a Tensor with the same values and contents as feed, that can be used as a ltn constant.
     
     A ltn constant denotes an individual grounded as a tensor in the Real field. 
@@ -16,9 +17,7 @@ def constant(value, trainable=False):
         value: A value to feed in the tensor.
         trainable: If True, `tf.GradientTapes` automatically watch the ltn constant. Defaults to False.
     """
-    #if value.dtype != tf.float32:
-    #    logging.getLogger(__name__).info("Casting constant to tf.float32")
-    result = torch.tensor(value, dtype=torch.float32)
+    result = torch.tensor(value, dtype=torch.float32, device=device)
     if trainable:
         result = result.clone().detach().requires_grad_(True)
     else:
@@ -27,7 +26,7 @@ def constant(value, trainable=False):
     return result
 
 
-def variable(label, feed):
+def variable(label, feed, device=torch.device('cpu')):
     """Returns a Tensor with the same values and contents as feed, that can be used as a ltn variable. 
 
     A ltn variable denotes a sequence of individuals.
@@ -42,14 +41,14 @@ def variable(label, feed):
     if label.startswith("diag"):
         raise ValueError("Labels starting with diag are reserved.")
     if isinstance(feed, torch.Tensor):
-        result = feed
+        result = feed.to(device, torch.float)
     else:
-        result = torch.Tensor(feed)
+        result = torch.tensor(feed, dtype=torch.float32, device=device)
     # if result.dtype != tf.float32 :
     #    logging.getLogger(__name__).info("Casting variable to tf.float32")
     # if len(result.shape) == 1:
     #     result = result[:, tf.newaxis]
-    result = result.type(torch.FloatTensor)
+    # result = result.type(torch.FloatTensor)
     result.latent_dom = label
     result.active_doms = [label]
     return result
@@ -73,11 +72,11 @@ class Predicate(nn.Module):
         model: The wrapped tensorflow model, without the ltn-specific broadcasting.
     """
 
-    def __init__(self, model):
+    def __init__(self, model, device=torch.device('cpu')):
         """Inits the ltn predicate with the given tf.keras.Model instance,
         wrapping it with the broadcasting mechanism."""
         super(Predicate, self).__init__()
-        self.model = model
+        self.model = model.to(device)
 
     def forward(self, inputs, *args, **kwargs):
         """Encapsulates the "self.model.__call__" to handle the broadcasting.
@@ -94,23 +93,23 @@ class Predicate(nn.Module):
             inputs, doms, dims_0 = cross_args(inputs, flatten_dim0=True)
         outputs = self.model(inputs, *args, **kwargs)
         if len(dims_0) > 0:
-            dims_0 = torch.tensor(dims_0).type(torch.IntTensor)  # is a fix when dims_0 is an empty list
+            dims_0 = torch.tensor(dims_0, dtype=torch.int)  # is a fix when dims_0 is an empty list
             outputs = torch.reshape(outputs, tuple(dims_0))
-        outputs = outputs.type(torch.FloatTensor)
+        #outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
         return outputs
 
     @classmethod
-    def Lambda(cls, lambda_operator):
+    def Lambda(cls, lambda_operator, device=torch.device('cpu')):
         """Constructor that takes in argument a lambda function. It is appropriate for small
         non-trainable mathematical operations that return a value in [0,1]."""
         model = LambdaModel(lambda_operator)
-        return cls(model)
+        return cls(model,device)
 
     @classmethod
-    def MLP(cls, input_shapes, hidden_layer_sizes=(16,16)):
+    def MLP(cls, input_shapes, hidden_layer_sizes=(16,16), device=torch.device('cpu')):
         model = MLP_pred(input_shapes, hidden_layer_sizes)
-        return cls(model)
+        return cls(model, device)
 
 
 class Function(nn.Module):
@@ -159,7 +158,7 @@ class Function(nn.Module):
             # outputs = tf.reshape(outputs, tf.concat([dims_0,outputs.shape[1::]],axis=0))
             outputs = torch.reshape(outputs, dims_0 + list(outputs.shape[1::]))
         # outputs = tf.cast(outputs,tf.float32)
-        outputs = outputs.type(torch.FloatTensor)
+        #outputs = outputs.type(torch.FloatTensor)
         outputs.active_doms = doms
         return outputs
 
@@ -179,7 +178,7 @@ class MLP_pred(nn.Module):
     def __init__(self, input_shapes, hidden_layer_sizes=(16,16)):
         super(MLP_pred, self).__init__()
         self.layers = nn.ModuleList()
-        inputs_dim = torch.sum(torch.tensor(input_shapes))
+        inputs_dim = sum(input_shapes)
         self.layers.append(nn.Linear(inputs_dim, hidden_layer_sizes[0]))
         if len(hidden_layer_sizes) > 1:  # might not be needed cause of for loop limit?
             for i, h_size in enumerate(hidden_layer_sizes[:-1]):
