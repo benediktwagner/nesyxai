@@ -14,7 +14,7 @@ Such formulas can express complex queries about the data, prior knowledge to sat
 One can represent and effectively compute the most important tasks of deep learning. Examples of such tasks are classification, regression, clustering, or link prediction.
 The ["Getting Started"](#getting-started) section of the README links to tutorials and examples of LTN code.
 
-[[Paper]](https://arxiv.org/pdf/2012.13635.pdf)
+Extensive [[Paper]](https://arxiv.org/pdf/2012.13635.pdf) covering the theory behind this code. 
 
 ## Installation
 
