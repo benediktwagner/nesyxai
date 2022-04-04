@@ -15,17 +15,6 @@ One can represent and effectively compute the most important tasks of deep learn
 The ["Getting Started"](#getting-started) section of the README links to tutorials and examples of LTN code.
 
 [[Paper]](https://arxiv.org/pdf/2012.13635.pdf)
-```
-@misc{badreddine2021logic,
-      title={Logic Tensor Networks}, 
-      author={Samy Badreddine and Artur d'Avila Garcez and Luciano Serafini and Michael Spranger},
-      year={2021},
-      eprint={2012.13635},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI}
-}
-```
-
 
 ## Installation
 
