@@ -1,11 +1,12 @@
-# Logic Tensor Networks (LTN)
+# Logic Tensor Networks (LTN) for PyTorch
 
 Logic Tensor Network (LTN) is a neurosymbolic framework that supports querying, learning and reasoning with both rich data and rich abstract knowledge about the world.
 LTN uses a differentiable first-order logic language, called Real Logic, to incorporate data and logic. 
+This PyTorch adaptation closely follows the main [Tensorflow implementation](https://github.com/logictensornetworks/logictensornetworks). 
 
 ![Grounding_illustration](./docs/img/framework_grounding.png)
 
-LTN converts Real Logic formulas (e.g. `∀x(cat(x) → ∃y(partOf(x,y)∧tail(y)))`) into [TensorFlow](https://www.tensorflow.org/) computational graphs.
+LTN converts Real Logic formulas (e.g. `∀x(cat(x) → ∃y(partOf(x,y)∧tail(y)))`) into [PyTorch](https://www.pytorch.org/) computational graphs.
 Such formulas can express complex queries about the data, prior knowledge to satisfy during learning, statements to prove ...
 
 ![Computational_graph_illustration](./docs/img/framework_computational_graph.png)
@@ -32,7 +33,7 @@ Clone the LTN repository and install it using `pip install -e <local project pat
 
 Following are the dependencies we used for development (similar versions should run fine):
 - python 3.8
-- tensorflow >= 2.2 (for running the core system)
+- pytorch >= 1.0 (for running the core system)
 - numpy >= 1.18 (for examples)
 - matplotlib >= 3.2 (for examples)
 
@@ -95,3 +96,4 @@ LTN has been developed thanks to active contributions and discussions with the f
 - Michael Spranger (Sony AI)
 - Michelangelo Diligenti (UniSiena)
 - Samy Badreddine (Sony AI)
+- Sofoklis Kyriakopoulos (City)
