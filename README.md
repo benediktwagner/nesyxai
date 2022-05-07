@@ -1,8 +1,11 @@
-# Logic Tensor Networks (LTN) for PyTorch
+# Accompanying Repository to the PhD thesis: Reasoning about what has been learning --- Neural-Symbolic Integration for explainable Artificial Intelligence
 
-Logic Tensor Network (LTN) is a neurosymbolic framework that supports querying, learning and reasoning with both rich data and rich abstract knowledge about the world.
+The thesis builds upon the Logic Tensor Network (LTN) approach. It is a neurosymbolic framework that supports querying, learning and reasoning with both rich data and rich abstract knowledge about the world.
 LTN uses a differentiable first-order logic language, called Real Logic, to incorporate data and logic. 
-This PyTorch adaptation closely follows the main [Tensorflow implementation](https://github.com/logictensornetworks/logictensornetworks). 
+This PyTorch adaptation follows the main [Tensorflow implementation](https://github.com/logictensornetworks/logictensornetworks). 
+
+The repository consists of pracitcal illustration and tutorials to utilise the LTN framework in an interactive manner. 
+All experiments are added or will be added once they are cleaned and compatible with the larger code-base.
 
 ![Grounding_illustration](./docs/img/framework_grounding.png)
 
