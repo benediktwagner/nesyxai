@@ -1,4 +1,5 @@
-# Accompanying Repository to the PhD thesis: Reasoning about what has been learning --- Neural-Symbolic Integration for explainable Artificial Intelligence
+# Accompanying Repository to the PhD thesis: Reasoning about what has been learned
+## Neural-Symbolic Integration for explainable Artificial Intelligence
 
 The thesis builds upon the Logic Tensor Network (LTN) approach. It is a neurosymbolic framework that supports querying, learning and reasoning with both rich data and rich abstract knowledge about the world.
 LTN uses a differentiable first-order logic language, called Real Logic, to incorporate data and logic. 
