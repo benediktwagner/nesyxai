@@ -5,7 +5,7 @@ The thesis builds upon the Logic Tensor Network (LTN) approach. It is a neurosym
 LTN uses a differentiable first-order logic language, called Real Logic, to incorporate data and logic. 
 This PyTorch adaptation follows the main [Tensorflow implementation](https://github.com/logictensornetworks/logictensornetworks). 
 
-The repository consists of pracitcal illustration and tutorials to utilise the LTN framework in an interactive manner. 
+The repository consists of pracitcal illustration and tutorials to utilise the LTN framework in an interactive manner. The tutorials follow the ones developed for the official Tensorflow LTN library. This implementation, however, is fully translated into the PyTorch framework with additional functionality (such as simple integration of different types of existing models and linear probing of layers for grounding abstract representations). 
 All experiments are added or will be added once they are cleaned and compatible with the larger code-base.
 
 ![Grounding_illustration](./docs/img/framework_grounding.png)
