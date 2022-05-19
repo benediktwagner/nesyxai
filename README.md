@@ -10,6 +10,9 @@ The repository consists of pracitcal illustration and tutorials to utilise the L
 The experiments section is still under development to make them more accessible. 
 All experiments are added or will be added once they are cleaned and compatible with the larger code-base.
 
+
+
+
 ![Grounding_illustration](./docs/img/framework_grounding.png)
 
 LTN converts Real Logic formulas (e.g. `∀x(cat(x) → ∃y(partOf(x,y)∧tail(y)))`) into [PyTorch](https://www.pytorch.org/) computational graphs.
